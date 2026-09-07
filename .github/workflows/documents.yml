@@ -185,7 +185,24 @@ jobs:
       - name: Assembler le support de cours
         run: |
           OUT=build/support-de-cours.md
-          cp "$README_FILE" "$OUT"
+          MANIFEST=build/anchors.tsv
+
+          # Ancre de destination d'un fichier source, dérivée de son nom. Le
+          # préfixe `src-` évite toute collision avec les ancres de titres.
+          anchor_of() {
+            printf 'src-%s' "$(printf '%s' "${1%.md}" \
+              | tr '[:upper:]' '[:lower:]' \
+              | tr -c 'a-z0-9' '-' \
+              | sed 's/-\+/-/g; s/^-//; s/-$//')"
+          }
+
+          # Le Readme ouvre le document : son ancre est posée tout en haut, pour
+          # que les « retour au sommaire » des chapitres aient une cible.
+          README_ANCHOR="$(anchor_of "$README_FILE")"
+          printf '<a id="%s"></a>\n\n' "$README_ANCHOR" > "$OUT"
+          cat "$README_FILE" >> "$OUT"
+
+          printf '%s\t%s\n' "$README_FILE" "$README_ANCHOR" > "$MANIFEST"
 
           # nullglob + tri de version : « 100-… » se range après « 14-… », là où
           # l'ordre lexicographique du shell le placerait avant.
@@ -214,19 +231,108 @@ jobs:
             # Le titre part dans un bloc HTML : &, < et > doivent être échappés.
             title_html="$(printf '%s' "$title" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
 
+            # L'intercalaire porte l'ancre du chapitre : c'est là qu'atterrissent
+            # les liens internes du PDF.
+            anchor="$(anchor_of "$f")"
+            printf '%s\t%s\n' "$f" "$anchor" >> "$MANIFEST"
+
             {
-              printf '\n<div class="intercalaire"><span>%s</span></div>\n\n' "$title_html"
+              printf '\n<div class="intercalaire" id="%s"><span>%s</span></div>\n\n' \
+                "$anchor" "$title_html"
               printf '%s\n' "$body"
             } >> "$OUT"
 
             count=$((count + 1))
-            echo "Ajouté : $f — $title"
+            echo "Ajouté : $f — $title (ancre #$anchor)"
           done
 
           if [ "$count" -eq 0 ]; then
             echo "Aucun fichier numéroté : le support ne contient que $README_FILE."
           else
             echo "$count fichier(s) numéroté(s) ajouté(s) après $README_FILE."
+          fi
+
+      # Dans un PDF, un lien vers `10-schema-souple.md` ne mène nulle part : le
+      # fichier n'existe pas à côté du lecteur. On les convertit donc en liens
+      # internes vers l'intercalaire du chapitre, et on retire ceux dont la
+      # cible ne figure pas dans le document.
+      - name: Convertir les liens entre fichiers en liens internes
+        run: |
+          cat > build/rewrite-links.js <<'JS'
+          const fs = require('fs');
+
+          const [, , mdPath, manifestPath] = process.argv;
+
+          const anchors = new Map();
+          for (const line of fs.readFileSync(manifestPath, 'utf8').split('\n')) {
+            if (!line.trim()) continue;
+            const [file, anchor] = line.split('\t');
+            anchors.set(file, anchor);
+          }
+
+          // Libellé entre crochets, cible entre parenthèses, titre optionnel.
+          // Le `(?<!!)` écarte les images : `![alt](src)` n'est pas un lien.
+          const LINK = /(?<!!)\[([^\]]*)\]\(\s*([^)\s]+)(\s+"[^"]*")?\s*\)/g;
+          const EXTERNAL = /^(https?:|mailto:|tel:|#)/i;
+
+          let internal = 0;
+          let removed = 0;
+          const unknown = new Map();
+          let inFence = false;
+
+          const out = fs
+            .readFileSync(mdPath, 'utf8')
+            .split('\n')
+            .map((line) => {
+              // Ce qu'un bloc de code contient est du texte à lire, pas des
+              // liens à suivre : on le laisse intact.
+              if (/^\s*(```|~~~)/.test(line)) {
+                inFence = !inFence;
+                return line;
+              }
+              if (inFence) return line;
+
+              return line.replace(LINK, (match, label, target) => {
+                if (EXTERNAL.test(target)) return match;
+
+                let base = target.split('#')[0];
+                try {
+                  base = decodeURIComponent(base);
+                } catch {
+                  // Cible non décodable : gardée telle quelle pour la recherche.
+                }
+
+                const anchor = anchors.get(base);
+                if (anchor) {
+                  internal += 1;
+                  // Le fragment éventuel est abandonné : la cible est
+                  // l'intercalaire du chapitre, seule ancre dont on garantisse
+                  // l'existence dans le PDF.
+                  return `[${label}](#${anchor})`;
+                }
+
+                removed += 1;
+                unknown.set(base, (unknown.get(base) ?? 0) + 1);
+                return label;
+              });
+            })
+            .join('\n');
+
+          fs.writeFileSync(mdPath, out);
+
+          console.log(`Liens convertis en liens internes : ${internal}`);
+          console.log(`Liens retirés (cible hors du PDF) : ${removed}`);
+          for (const [target, n] of [...unknown].sort((a, b) => b[1] - a[1])) {
+            console.log(`  - ${target} (${n})`);
+          }
+          JS
+
+          node build/rewrite-links.js build/support-de-cours.md build/anchors.tsv
+
+          # Garde-fou : plus aucun lien ne doit pointer vers un fichier .md.
+          if grep -n '](\S*\.md' build/support-de-cours.md; then
+            echo "::error::Des liens vers des fichiers .md subsistent dans le support."
+            exit 1
           fi
 
       # Le PDF circule seul, détaché du dépôt : sans cette mention, le lecteur
