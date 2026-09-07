@@ -1,4 +1,4 @@
-# MongoDB & Python - cours pas à pas
+# MongoDB & Python
 
 Un cours que l'on **suit clavier en main**, du premier conteneur Docker jusqu'à une petite application Python qui crée, lit, modifie et supprime des documents.
 

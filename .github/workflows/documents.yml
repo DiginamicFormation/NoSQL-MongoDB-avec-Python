@@ -1,0 +1,403 @@
+name: Documents
+
+# Produit les documents distribuables à partir des sources du dépôt.
+#
+# Le support de cours (`support-de-cours.pdf`) est toujours produit. Il assemble
+# le Readme puis, s'il y en a, tous les fichiers `.md` dont le nom commence par
+# un numéro (`01-…`, `02-…`), pris dans l'ordre. Chaque fichier numéroté est
+# précédé d'une page d'intercalaire portant son titre de premier niveau.
+# S'il n'y a aucun fichier numéroté, le PDF ne contient que le Readme.
+#
+# Les diapositives (`slides.pdf`, `slides.pptx`, et leurs variantes `-white`
+# sans le style sombre) ne sont produites que si `slides.md` existe à la racine.
+# Sinon ces étapes sont simplement sautées.
+#
+# Le workflow se déclenche uniquement sur un tag `v*` : les documents sont
+# produits pour une version identifiée, jamais à chaque commit. Ils sont
+# publiés comme artefact du run (90 jours) ET attachés à une release GitHub,
+# en téléchargement direct et permanent.
+#
+#   git tag v1.0 && git push origin v1.0
+#
+# `workflow_dispatch` reste ouvert pour un essai à blanc : il produit
+# l'artefact sans créer de release, ce qui permet de valider le rendu sans
+# consommer un numéro de version.
+#
+# Les actions sont épinglées sur une majeure. Pour un usage réellement en
+# production, épinglez-les sur un SHA de commit plutôt que sur un tag mouvant.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Versions exactes : le rendu doit être reproductible d'un run à l'autre.
+  # À bumper volontairement, pas à laisser flotter sur @latest.
+  MARP_VERSION: 4.5.1
+  MD_TO_PDF_VERSION: 5.2.5
+  MERMAID_CLI_VERSION: 11.17.0
+
+  # Logo inliné dans l'en-tête du support de cours. Récupéré au build plutôt
+  # que versionné : une seule source de vérité, le dépôt PublicAssets.
+  LOGO_URL: https://raw.githubusercontent.com/DiginamicInternal/PublicAssets/refs/heads/main/Logo-diginamic-color.svg
+
+  # Le délai par défaut de Marp est de 30 s, insuffisant dès que le rendu charge
+  # des ressources distantes (logo, illustrations).
+  PUPPETEER_TIMEOUT: "180000"
+
+jobs:
+  build:
+    name: Générer les documents
+    runs-on: ubuntu-latest
+
+    outputs:
+      title: ${{ steps.meta.outputs.title }}
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Marp détecte Chrome tout seul, mais md-to-pdf et mermaid-cli attendent
+      # un Chrome installé par Puppeteer, absent du runner. On leur passe donc
+      # explicitement le binaire préinstallé, sans le télécharger.
+      - name: Localiser Chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          if [ -z "$CHROME" ]; then
+            echo "::error::Aucun navigateur Chromium trouvé sur le runner."
+            exit 1
+          fi
+          echo "Chrome trouvé : $CHROME ($("$CHROME" --version))"
+          echo "CHROME_BIN=$CHROME" >> "$GITHUB_ENV"
+
+      # Un seul endroit où l'on décide « qu'est-ce qu'on a sous la main ? ».
+      # Le reste du workflow ne fait que consommer ces valeurs.
+      - name: Inventorier les sources
+        id: meta
+        run: |
+          mkdir -p dist build
+
+          # Le nom du Readme varie d'un dépôt à l'autre, et le runner est
+          # sensible à la casse : on cherche les graphies usuelles.
+          README_FILE=""
+          for candidate in README.md Readme.md readme.md; do
+            if [ -f "$candidate" ]; then README_FILE="$candidate"; break; fi
+          done
+          if [ -z "$README_FILE" ]; then
+            echo "::error::Aucun Readme trouvé à la racine du dépôt."
+            exit 1
+          fi
+
+          # Titre du document : le premier titre de niveau 1 du Readme.
+          TITLE="$(sed -n 's/^# \+//p' "$README_FILE" | head -1)"
+          [ -n "$TITLE" ] || TITLE="${GITHUB_REPOSITORY##*/}"
+
+          echo "README_FILE=$README_FILE" >> "$GITHUB_ENV"
+          echo "DOC_TITLE=$TITLE" >> "$GITHUB_ENV"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
+          # nullglob : sans correspondance, le motif disparaît au lieu de rester
+          # littéral. C'est ce qui rend le cas « aucun fichier numéroté » sain.
+          shopt -s nullglob
+          steps=([0-9]*.md)
+          shopt -u nullglob
+
+          echo "Readme : $README_FILE"
+          echo "Titre  : $TITLE"
+          echo "Slides : $([ -f slides.md ] && echo oui || echo non)"
+          if [ "${#steps[@]}" -eq 0 ]; then
+            echo "Étapes : aucune (le support ne contiendra que le Readme)"
+          else
+            echo "Étapes :"
+            printf '%s\n' "${steps[@]}" | sort -V | sed 's/^/  - /'
+          fi
+
+      # ---------------------------------------------------------------- slides
+
+      # Les cinq étapes qui suivent ne s'exécutent que si `slides.md` existe.
+
+      - name: Générer les diapositives en PDF
+        if: hashFiles('slides.md') != ''
+        run: |
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
+            --pdf \
+            --pdf-outlines \
+            --output dist/slides.pdf
+
+      - name: Générer les diapositives en PPTX
+        if: hashFiles('slides.md') != ''
+        run: |
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
+            --pptx \
+            --output dist/slides.pptx
+
+      # Deux transformations : on retire le bloc `style:` (fond sombre), puis on
+      # échange le logo du footer. Le PNG « -blk » est fait pour le fond sombre ;
+      # sur fond blanc, c'est le SVG couleur qu'il faut.
+      - name: Préparer la version white
+        if: hashFiles('slides.md') != ''
+        run: |
+          awk '
+            $0 == "style: |" { skip=1; next }
+            skip && $0 ~ /^  / { next }
+            skip { skip=0 }
+            { print }
+          ' slides.md \
+          | sed 's|Logo-diginamic-color-blk\.png|Logo-diginamic-color.svg|g' \
+          > build/slides-white.md
+          grep -n Logo-diginamic build/slides-white.md
+
+      - name: Générer les diapositives white en PDF
+        if: hashFiles('slides.md') != ''
+        run: |
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
+            --pdf \
+            --pdf-outlines \
+            --output dist/slides-white.pdf
+
+      - name: Générer les diapositives white en PPTX
+        if: hashFiles('slides.md') != ''
+        run: |
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
+            --pptx \
+            --output dist/slides-white.pptx
+
+      # --------------------------------------------------------------- support
+
+      # Le support est un seul Markdown : le Readme, puis chaque fichier
+      # numéroté précédé de son intercalaire. L'assemblage a lieu dans `build/`
+      # uniquement — aucun fichier du dépôt n'est modifié, pour que GitHub
+      # continue d'afficher les sources telles quelles.
+      #
+      # De chaque fichier numéroté on retire tout ce qui précède son titre de
+      # niveau 1, titre compris : la ligne de navigation (« ← Étape 05 ·
+      # Sommaire · Étape suivante → ») n'a aucun sens dans un document relié, et
+      # le titre est déjà porté par l'intercalaire.
+      - name: Assembler le support de cours
+        run: |
+          OUT=build/support-de-cours.md
+          cp "$README_FILE" "$OUT"
+
+          # nullglob + tri de version : « 100-… » se range après « 14-… », là où
+          # l'ordre lexicographique du shell le placerait avant.
+          shopt -s nullglob
+          steps=([0-9]*.md)
+          shopt -u nullglob
+          if [ "${#steps[@]}" -gt 0 ]; then
+            mapfile -t steps < <(printf '%s\n' "${steps[@]}" | sort -V)
+          fi
+
+          count=0
+          for f in "${steps[@]}"; do
+            title="$(sed -n 's/^# \+//p' "$f" | head -1)"
+
+            if [ -n "$title" ]; then
+              # Le titre existe : l'intercalaire le porte, et le corps du
+              # chapitre reprend juste après cette ligne.
+              body="$(awk 'seen { print } /^# / && !seen { seen = 1 }' "$f")"
+            else
+              # Pas de titre de niveau 1 : on se rabat sur le nom du fichier, et
+              # on garde le fichier entier plutôt que de le vider.
+              title="${f%.md}"
+              body="$(cat "$f")"
+            fi
+
+            # Le titre part dans un bloc HTML : &, < et > doivent être échappés.
+            title_html="$(printf '%s' "$title" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+
+            {
+              printf '\n<div class="intercalaire"><span>%s</span></div>\n\n' "$title_html"
+              printf '%s\n' "$body"
+            } >> "$OUT"
+
+            count=$((count + 1))
+            echo "Ajouté : $f — $title"
+          done
+
+          if [ "$count" -eq 0 ]; then
+            echo "Aucun fichier numéroté : le support ne contient que $README_FILE."
+          else
+            echo "$count fichier(s) numéroté(s) ajouté(s) après $README_FILE."
+          fi
+
+      # Le PDF circule seul, détaché du dépôt : sans cette mention, le lecteur
+      # n'a aucun moyen de remonter à la source ni de vérifier s'il tient une
+      # version à jour.
+      - name: Ajouter l'URL du dépôt source en fin de document
+        working-directory: build
+        run: |
+          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          cat >> support-de-cours.md <<SOURCE
+
+          ## Source
+
+          Ce document est généré à partir des sources du dépôt :
+
+          [${REPO_URL}](${REPO_URL})
+
+          Version : \`${GITHUB_REF_NAME}\`
+          SOURCE
+          tail -12 support-de-cours.md
+
+      # md-to-pdf rendrait un bloc mermaid en bloc de code brut : mermaid-cli le
+      # remplace d'abord par un SVG. L'étape lance un Chrome, donc on la saute
+      # quand le document assemblé ne contient aucun diagramme.
+      - name: Rendre les diagrammes mermaid
+        working-directory: build
+        run: |
+          if ! grep -q '^```mermaid' support-de-cours.md; then
+            echo "Aucun bloc mermaid dans le support : étape sautée."
+            exit 0
+          fi
+          export PUPPETEER_EXECUTABLE_PATH="$CHROME_BIN"
+          # Sortie dans un fichier distinct puis renommage : mermaid-cli ne
+          # garantit pas de savoir lire et écrire le même fichier.
+          npx --yes "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
+            --input support-de-cours.md \
+            --output support-avec-diagrammes.md
+          mv support-avec-diagrammes.md support-de-cours.md
+
+      # L'en-tête porte le logo. Chrome rend les templates d'en-tête et de pied
+      # dans un contexte isolé, sans accès réseau : une URL distante y resterait
+      # vide. Le SVG est donc récupéré ici et inliné en data URI. La marge haute
+      # passe de 18 à 24 mm pour lui laisser la place.
+      - name: Générer le support de cours en PDF
+        working-directory: build
+        run: |
+          LOGO_B64="$(curl -fsSL "$LOGO_URL" | base64 -w0)"
+          if [ -z "$LOGO_B64" ]; then
+            echo "::error::Logo vide ou introuvable : $LOGO_URL"
+            exit 1
+          fi
+
+          # Le titre part dans les templates HTML d'en-tête et de pied de page.
+          TITLE_HTML="$(printf '%s' "$DOC_TITLE" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+
+          cat > pdf-options.json <<PDFOPTS
+          {
+            "format": "A4",
+            "margin": {"top": "24mm", "bottom": "20mm", "left": "16mm", "right": "16mm"},
+            "printBackground": true,
+            "displayHeaderFooter": true,
+            "headerTemplate": "<div style=\"width:100%;padding:8mm 16mm 0;text-align:right\"><img src=\"data:image/svg+xml;base64,${LOGO_B64}\" style=\"height:8mm\"></div>",
+            "footerTemplate": "<div style=\"width:100%;font-size:8px;color:#888;padding:0 16mm;display:flex;justify-content:space-between\"><span>${TITLE_HTML}</span><span class=\"pageNumber\"></span></div>"
+          }
+          PDFOPTS
+
+          # L'intercalaire occupe une page entière : saut de page avant ET après.
+          # Sa hauteur (200 mm) reste sous la zone imprimable (297 - 24 - 20 =
+          # 253 mm) pour ne pas déborder sur une page blanche supplémentaire.
+          #
+          # Ces règles passent par `--css`, qui AJOUTE une feuille par-dessus
+          # celles de md-to-pdf. `--stylesheet` remplacerait la liste par
+          # défaut, et le document perdrait toute sa mise en forme (markdown.css
+          # et la coloration syntaxique).
+          cat > intercalaires.css <<'CSS'
+          .intercalaire {
+            page-break-before: always;
+            page-break-after: always;
+            break-before: page;
+            break-after: page;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200mm;
+            text-align: center;
+          }
+          .intercalaire span {
+            font-size: 30px;
+            font-weight: 700;
+            line-height: 1.35;
+            max-width: 80%;
+          }
+          CSS
+
+          npx --yes "md-to-pdf@${MD_TO_PDF_VERSION}" support-de-cours.md \
+            --document-title "$DOC_TITLE" \
+            --launch-options "{\"executablePath\":\"${CHROME_BIN}\"}" \
+            --css "$(cat intercalaires.css)" \
+            --pdf-options "$(cat pdf-options.json)"
+          mv support-de-cours.pdf ../dist/
+
+      # ------------------------------------------------------------- garde-fou
+
+      # Marp comme md-to-pdf sortent parfois en code 0 sans avoir écrit de
+      # fichier exploitable. On vérifie donc que ce qui devait être produit l'a
+      # été : le support toujours, les slides seulement si `slides.md` existe.
+      - name: Vérifier les fichiers produits
+        run: |
+          expected="dist/support-de-cours.pdf"
+          if [ -f slides.md ]; then
+            expected="$expected dist/slides.pdf dist/slides.pptx dist/slides-white.pdf dist/slides-white.pptx"
+          else
+            echo "Pas de slides.md : aucune diapositive attendue."
+          fi
+
+          fail=0
+          for f in $expected; do
+            if [ ! -s "$f" ]; then
+              echo "::error::$f absent ou vide"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+          ls -lh dist
+          {
+            echo "### Documents générés"
+            echo ""
+            echo "| Fichier | Taille |"
+            echo "|---|---|"
+            for f in dist/*; do
+              echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publier l'artefact
+        uses: actions/upload-artifact@v7
+        with:
+          name: documents
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    name: Publier la release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    # Seul ce job a besoin d'écrire : le job de build reste en lecture seule.
+    permissions:
+      contents: write
+
+    steps:
+      # Pas de checkout : gh n'a pas besoin du dépôt en local, GH_REPO suffit.
+      - name: Récupérer les documents générés
+        uses: actions/download-artifact@v8
+        with:
+          name: documents
+          path: dist
+
+      # `dist/*` plutôt qu'une liste figée : la release attache ce qui a
+      # réellement été produit, avec ou sans diapositives.
+      - name: Créer la release et y attacher les documents
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DOC_TITLE: ${{ needs.build.outputs.title }}
+        run: |
+          ls -lh dist
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${DOC_TITLE} ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag
