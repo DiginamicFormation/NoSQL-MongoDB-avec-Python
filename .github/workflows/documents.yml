@@ -2,15 +2,28 @@ name: Documents
 
 # Produit les documents distribuables à partir des sources du dépôt.
 #
-# Le support de cours (`support-de-cours.pdf`) est toujours produit. Il assemble
-# le Readme puis, s'il y en a, tous les fichiers `.md` dont le nom commence par
-# un numéro (`01-…`, `02-…`), pris dans l'ordre. Chaque fichier numéroté est
-# précédé d'une page d'intercalaire portant son titre de premier niveau.
-# S'il n'y a aucun fichier numéroté, le PDF ne contient que le Readme.
+# Le support de cours est toujours produit. Il s'ouvre
+# sur une page de garde (logo, dépôt, version), enchaîne sur le Readme puis,
+# s'il y en a, sur tous les fichiers `.md` de la racine dont le nom commence par
+# un numéro (`01-…`, `1-…`) ou par une lettre (`A-…`, `B-…`), pris dans l'ordre.
+# Chaque chapitre est précédé d'une page d'intercalaire portant son titre de
+# premier niveau. S'il n'y a aucun chapitre, le PDF ne contient que le Readme.
 #
-# Les diapositives (`slides.pdf`, `slides.pptx`, et leurs variantes `-white`
-# sans le style sombre) ne sont produites que si `slides.md` existe à la racine.
-# Sinon ces étapes sont simplement sautées.
+# Les diapositives (PDF, PPTX, et leurs variantes `-white` sans le style
+# sombre) ne sont produites que si `slides.md` existe à la racine. Sinon ces
+# étapes sont simplement sautées.
+#
+# Les fichiers produits portent le nom du cours — le titre de niveau 1 du
+# Readme — pour rester identifiables une fois téléchargés :
+#
+#   MongoDB-Python-support-de-cours.pdf
+#   MongoDB-Python-slides.pdf
+#   MongoDB-Python-slides-white.pptx
+#
+# Le support est crédité : un fichier `AUTHORS` à la racine, s'il existe, porte
+# la ou les signatures — elles apparaissent sur la page de garde et ouvrent la
+# section « Crédits » qui ferme le document. Les contributeurs y sont listés
+# ensuite, tirés de l'historique git et enrichis des comptes GitHub.
 #
 # Le workflow se déclenche uniquement sur un tag `v*` : les documents sont
 # produits pour une version identifiée, jamais à chaque commit. Ils sont
@@ -58,8 +71,12 @@ jobs:
       title: ${{ steps.meta.outputs.title }}
 
     steps:
+      # `fetch-depth: 0` : par défaut le checkout est superficiel (un seul
+      # commit), et les crédits se lisent dans l'historique complet.
       - name: Récupérer le dépôt
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Installer Node
         uses: actions/setup-node@v7
@@ -101,24 +118,175 @@ jobs:
           TITLE="$(sed -n 's/^# \+//p' "$README_FILE" | head -1)"
           [ -n "$TITLE" ] || TITLE="${GITHUB_REPOSITORY##*/}"
 
+          # Les documents circulent seuls, hors du dépôt : leur nom de fichier
+          # doit dire de quel cours ils viennent. Le titre est donc réduit à de
+          # l'ASCII alphanumérique séparé par des tirets — « MongoDB & Python »
+          # donne « MongoDB-Python ».
+          #
+          # Ni espace ni accent, et c'est délibéré : GitHub réécrit le nom des
+          # fichiers attachés à une release et remplace par un point tout ce qui
+          # sort de cet alphabet. « MongoDB & Python - support de cours.pdf » se
+          # téléchargerait « MongoDB.&.Python.-.support.de.cours.pdf ». En n'en
+          # sortant pas, le nom construit ici est celui que le lecteur verra.
+          #
+          # Node plutôt que `iconv -t ASCII//TRANSLIT` pour retirer les
+          # accents : la translittération de la glibc dépend de la locale du
+          # runner et rend « é » tantôt « e », tantôt « ? ». La décomposition
+          # NFD, elle, donne le même résultat partout.
+          SLUG="$(TITLE="$TITLE" node -e '
+            process.stdout.write(
+              process.env.TITLE
+                .normalize("NFD")
+                .replace(/\p{Diacritic}/gu, "")
+                .replace(/[^A-Za-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+            );
+          ')"
+          [ -n "$SLUG" ] || SLUG="${GITHUB_REPOSITORY##*/}"
+
           echo "README_FILE=$README_FILE" >> "$GITHUB_ENV"
           echo "DOC_TITLE=$TITLE" >> "$GITHUB_ENV"
+          echo "DOC_SLUG=$SLUG" >> "$GITHUB_ENV"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
-          # nullglob : sans correspondance, le motif disparaît au lieu de rester
-          # littéral. C'est ce qui rend le cas « aucun fichier numéroté » sain.
-          shopt -s nullglob
-          steps=([0-9]*.md)
-          shopt -u nullglob
+          # Chapitres : les `.md` de la racine dont le nom commence par un
+          # numéro (`01-…`, `1-…`) ou par une lettre (`A-…`, `B-…`), suivi d'un
+          # séparateur. C'est ce séparateur qui fait la différence entre un
+          # chapitre et un fichier ordinaire : ni `README.md` ni `slides.md` ne
+          # correspondent. Revers de la médaille, un `a-propos.md` posé à la
+          # racine serait pris pour le chapitre « a » ; la liste est journalisée
+          # juste en dessous, de quoi s'en apercevoir au premier run.
+          #
+          # `sort -V` range « 100-… » après « 14-… », là où l'ordre
+          # lexicographique le placerait avant, et fait passer les numéros avant
+          # les lettres si un dépôt mélange les deux conventions.
+          #
+          # La liste est écrite sur disque : l'étape d'assemblage la relit au
+          # lieu de refaire la même recherche, un seul endroit décide.
+          find . -maxdepth 1 -name '*.md' -printf '%f\n' \
+            | grep -E '^([0-9]+|[A-Za-z])[-._ ]' \
+            | grep -vxF "$README_FILE" \
+            | sort -V > build/chapters.txt
 
           echo "Readme : $README_FILE"
           echo "Titre  : $TITLE"
+          echo "Nom    : $SLUG-…"
           echo "Slides : $([ -f slides.md ] && echo oui || echo non)"
-          if [ "${#steps[@]}" -eq 0 ]; then
-            echo "Étapes : aucune (le support ne contiendra que le Readme)"
+          if [ -s build/chapters.txt ]; then
+            echo "Chapitres :"
+            sed 's/^/  - /' build/chapters.txt
           else
-            echo "Étapes :"
-            printf '%s\n' "${steps[@]}" | sort -V | sed 's/^/  - /'
+            echo "Chapitres : aucun (le support ne contiendra que le Readme)"
+          fi
+
+      # Qui signe le cours, et qui y a mis la main.
+      #
+      # `AUTHORS`, s'il existe, porte la ou les signatures : c'est une décision
+      # éditoriale, pas une statistique, donc elle se déclare plutôt qu'elle ne
+      # se calcule. Une ligne par personne, les lignes vides et les `#` ignorés.
+      # Sans ce fichier, le document ne cite que les contributeurs.
+      #
+      # Les contributeurs, eux, sortent de l'historique git — et non de
+      # l'endpoint `contributors` de GitHub, qui perdrait les commits dont
+      # l'adresse n'est rattachée à aucun compte. GitHub ne sert qu'à enrichir :
+      # il seul sait relier une adresse de commit à un compte, d'où l'on tire un
+      # nom affichable et une adresse publique.
+      #
+      # Tout est « best effort » : sans réseau, sans droits ou sans compte
+      # correspondant, on retombe sur l'identité du commit. Un document doit
+      # pouvoir se construire même quand l'API ne répond pas.
+      - name: Recenser les crédits
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > build/authors.txt
+          : > build/authors-line.txt
+          : > build/contributors.txt
+
+          if [ -f AUTHORS ]; then
+            grep -vE '^[[:space:]]*(#|$)' AUTHORS > build/authors.txt || true
+          fi
+
+          # « A », « A et B », « A, B et C » — la même chaîne servira à la page
+          # de garde et à la section de crédits, écrite une fois pour les deux.
+          if [ -s build/authors.txt ]; then
+            awk '{ n[NR] = $0 }
+                 END { for (i = 1; i <= NR; i++) {
+                         printf "%s", n[i]
+                         if (i < NR - 1) printf ", "
+                         else if (i == NR - 1) printf " et "
+                       }
+                       printf "\n" }' build/authors.txt > build/authors-line.txt
+            echo "Signature(s) : $(cat build/authors-line.txt)"
+          else
+            echo "Signature(s) : aucune (pas de fichier AUTHORS)"
+          fi
+
+          # Identités des commits, les plus prolifiques d'abord. `%aN` et `%aE`
+          # passent par .mailmap : un fichier à la racine suffit à fusionner les
+          # adresses multiples d'une même personne.
+          git log --format='%aN%x09%aE' \
+            | sort | uniq -c | sort -rn | sed 's/^ *[0-9][0-9]* //' \
+            > build/git-identities.tsv
+
+          # Correspondance adresse de commit -> compte GitHub, telle que GitHub
+          # l'établit lui-même.
+          if ! gh api "repos/${GITHUB_REPOSITORY}/commits" --paginate \
+                 --jq '.[] | select(.author != null)
+                           | [.commit.author.email, .author.login] | @tsv' \
+                 > build/gh-commits.tsv 2>build/gh-error.txt; then
+            echo "::warning::Comptes GitHub non récupérés ($(head -1 build/gh-error.txt)) : les identités des commits sont utilisées telles quelles."
+            : > build/gh-commits.tsv
+          fi
+          sort -u build/gh-commits.tsv -o build/logins.tsv
+
+          while IFS="$(printf '\t')" read -r name email; do
+            [ -n "$name" ] || continue
+
+            # Claude n'est pas cité, les robots non plus. Les trailers
+            # `Co-Authored-By` ne sont de toute façon pas lus : `%aN` ne rend
+            # que l'auteur du commit.
+            case "$email" in *noreply@anthropic.com) continue ;; esac
+            case "$name" in Claude*|*'[bot]') continue ;; esac
+
+            login="$(awk -F'\t' -v e="$email" '$1 == e { print $2; exit }' build/logins.tsv)"
+            if [ -n "$login" ]; then
+              account="$(gh api "users/$login" --jq '[.name // "", .email // ""] | @tsv' 2>/dev/null)" || account=""
+              gh_name="$(printf '%s' "$account" | cut -f1)"
+              gh_email="$(printf '%s' "$account" | cut -f2)"
+              # Le nom du compte prime sur celui du commit, souvent un pseudo.
+              if [ -n "$gh_name" ]; then name="$gh_name"; fi
+              # L'adresse publique du compte prime : c'est celle que la personne
+              # a choisi d'exposer.
+              if [ -n "$gh_email" ]; then email="$gh_email"; fi
+            fi
+
+            # Déjà crédité comme signataire : on ne le répète pas plus bas.
+            if [ -s build/authors.txt ] && grep -qxF "$name" build/authors.txt; then
+              continue
+            fi
+
+            # Une adresse `noreply` n'apprend rien à personne : mieux vaut le
+            # nom seul.
+            case "$email" in *noreply*) email="" ;; esac
+
+            if [ -n "$email" ]; then
+              printf '%s <%s>\n' "$name" "$email" >> build/contributors.txt
+            else
+              printf '%s\n' "$name" >> build/contributors.txt
+            fi
+          done < build/git-identities.tsv
+
+          # Deux identités git peuvent mener au même compte : on dédoublonne
+          # après enrichissement, en gardant l'ordre.
+          awk '!seen[$0]++' build/contributors.txt > build/contributors.tmp
+          mv build/contributors.tmp build/contributors.txt
+
+          if [ -s build/contributors.txt ]; then
+            echo "Contributeurs :"
+            sed 's/^/  - /' build/contributors.txt
+          else
+            echo "Contributeurs : aucun (hors signataires)"
           fi
 
       # ---------------------------------------------------------------- slides
@@ -131,14 +299,14 @@ jobs:
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
             --pdf \
             --pdf-outlines \
-            --output dist/slides.pdf
+            --output "dist/${DOC_SLUG}-slides.pdf"
 
       - name: Générer les diapositives en PPTX
         if: hashFiles('slides.md') != ''
         run: |
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
             --pptx \
-            --output dist/slides.pptx
+            --output "dist/${DOC_SLUG}-slides.pptx"
 
       # Deux transformations : on retire le bloc `style:` (fond sombre), puis on
       # échange le logo du footer. Le PNG « -blk » est fait pour le fond sombre ;
@@ -162,26 +330,26 @@ jobs:
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
             --pdf \
             --pdf-outlines \
-            --output dist/slides-white.pdf
+            --output "dist/${DOC_SLUG}-slides-white.pdf"
 
       - name: Générer les diapositives white en PPTX
         if: hashFiles('slides.md') != ''
         run: |
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
             --pptx \
-            --output dist/slides-white.pptx
+            --output "dist/${DOC_SLUG}-slides-white.pptx"
 
       # --------------------------------------------------------------- support
 
-      # Le support est un seul Markdown : le Readme, puis chaque fichier
-      # numéroté précédé de son intercalaire. L'assemblage a lieu dans `build/`
+      # Le support est un seul Markdown : le Readme, puis chaque chapitre
+      # précédé de son intercalaire. L'assemblage a lieu dans `build/`
       # uniquement — aucun fichier du dépôt n'est modifié, pour que GitHub
       # continue d'afficher les sources telles quelles.
       #
-      # De chaque fichier numéroté on retire tout ce qui précède son titre de
-      # niveau 1, titre compris : la ligne de navigation (« ← Étape 05 ·
-      # Sommaire · Étape suivante → ») n'a aucun sens dans un document relié, et
-      # le titre est déjà porté par l'intercalaire.
+      # De chaque chapitre on retire tout ce qui précède son titre de niveau 1,
+      # titre compris : la ligne de navigation (« ← Étape 05 · Sommaire · Étape
+      # suivante → ») n'a aucun sens dans un document relié, et le titre est
+      # déjà porté par l'intercalaire.
       - name: Assembler le support de cours
         run: |
           OUT=build/support-de-cours.md
@@ -204,17 +372,11 @@ jobs:
 
           printf '%s\t%s\n' "$README_FILE" "$README_ANCHOR" > "$MANIFEST"
 
-          # nullglob + tri de version : « 100-… » se range après « 14-… », là où
-          # l'ordre lexicographique du shell le placerait avant.
-          shopt -s nullglob
-          steps=([0-9]*.md)
-          shopt -u nullglob
-          if [ "${#steps[@]}" -gt 0 ]; then
-            mapfile -t steps < <(printf '%s\n' "${steps[@]}" | sort -V)
-          fi
+          # Liste établie et triée par l'étape d'inventaire.
+          mapfile -t chapters < build/chapters.txt
 
           count=0
-          for f in "${steps[@]}"; do
+          for f in "${chapters[@]}"; do
             title="$(sed -n 's/^# \+//p' "$f" | head -1)"
 
             if [ -n "$title" ]; then
@@ -247,9 +409,9 @@ jobs:
           done
 
           if [ "$count" -eq 0 ]; then
-            echo "Aucun fichier numéroté : le support ne contient que $README_FILE."
+            echo "Aucun chapitre : le support ne contient que $README_FILE."
           else
-            echo "$count fichier(s) numéroté(s) ajouté(s) après $README_FILE."
+            echo "$count chapitre(s) ajouté(s) après $README_FILE."
           fi
 
       # Dans un PDF, un lien vers `10-schema-souple.md` ne mène nulle part : le
@@ -335,24 +497,35 @@ jobs:
             exit 1
           fi
 
-      # Le PDF circule seul, détaché du dépôt : sans cette mention, le lecteur
-      # n'a aucun moyen de remonter à la source ni de vérifier s'il tient une
-      # version à jour.
-      - name: Ajouter l'URL du dépôt source en fin de document
+      # Les crédits ferment le document. Ils sont ajoutés après la conversion
+      # des liens : ils n'en contiennent aucun vers un `.md`, et l'adresse entre
+      # chevrons doit rester un lien `mailto:` cliquable dans le PDF.
+      - name: Ajouter les crédits en fin de document
         working-directory: build
         run: |
-          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
-          cat >> support-de-cours.md <<SOURCE
+          if [ ! -s authors-line.txt ] && [ ! -s contributors.txt ]; then
+            echo "Ni signature ni contributeur : pas de section Crédits."
+            exit 0
+          fi
 
-          ## Source
+          {
+            printf '\n## Crédits\n\n'
 
-          Ce document est généré à partir des sources du dépôt :
+            if [ -s authors-line.txt ]; then
+              printf 'Cours de %s.\n' "$(cat authors-line.txt)"
+              if [ -s contributors.txt ]; then
+                printf '\nOnt également contribué :\n\n'
+              fi
+            else
+              printf 'Ont contribué à ce cours :\n\n'
+            fi
 
-          [${REPO_URL}](${REPO_URL})
+            if [ -s contributors.txt ]; then
+              sed 's/^/- /' contributors.txt
+            fi
+          } >> support-de-cours.md
 
-          Version : \`${GITHUB_REF_NAME}\`
-          SOURCE
-          tail -12 support-de-cours.md
+          tail -15 support-de-cours.md
 
       # md-to-pdf rendrait un bloc mermaid en bloc de code brut : mermaid-cli le
       # remplace d'abord par un SVG. L'étape lance un Chrome, donc on la saute
@@ -385,8 +558,56 @@ jobs:
             exit 1
           fi
 
-          # Le titre part dans les templates HTML d'en-tête et de pied de page.
-          TITLE_HTML="$(printf '%s' "$DOC_TITLE" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+          # Le titre part dans des templates HTML : &, < et > doivent être
+          # échappés, ici comme dans la page de garde plus bas.
+          esc_html() {
+            printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+          }
+          TITLE_HTML="$(esc_html "$DOC_TITLE")"
+
+          # Page de garde. Elle remplace la mention « Source » qui fermait le
+          # document : le PDF circule détaché du dépôt, et c'est en l'ouvrant —
+          # pas à la dernière page — que le lecteur doit pouvoir dire d'où il
+          # vient et quelle version il tient.
+          #
+          # Le logo est le même data URI que celui de l'en-tête : le rendu se
+          # fait sans réseau, une URL distante resterait vide.
+          REPO_NAME_HTML="$(esc_html "${GITHUB_REPOSITORY}")"
+          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          REPO_URL_HTML="$(esc_html "$REPO_URL")"
+          VERSION_HTML="$(esc_html "${GITHUB_REF_NAME}")"
+
+          # Le bloc est ajouté en tête du document assemblé, après la réécriture
+          # des liens et le rendu mermaid : il ne contient ni lien vers un `.md`
+          # ni diagramme, ces étapes n'ont rien à en faire.
+          # Les lignes du bloc sont assemblées à part : la signature n'existe
+          # que si le dépôt a un `AUTHORS`, et une ligne vide au milieu du
+          # `<div>` couperait le bloc HTML en deux aux yeux du parseur Markdown.
+          # « Par » plutôt qu'« Auteur » : le libellé vaut quel que soit le
+          # nombre de personnes et ne présume de personne.
+          GARDE_ROWS="$(
+            if [ -s authors-line.txt ]; then
+              printf '    <dt>Par</dt><dd>%s</dd>\n' "$(esc_html "$(cat authors-line.txt)")"
+            fi
+            printf '    <dt>Dépôt</dt><dd>%s</dd>\n' "$REPO_NAME_HTML"
+            printf '    <dt>Source</dt><dd><a href="%s">%s</a></dd>\n' "$REPO_URL_HTML" "$REPO_URL_HTML"
+            printf '    <dt>Version</dt><dd>%s</dd>\n' "$VERSION_HTML"
+          )"
+
+          {
+            cat <<GARDE
+          <div class="page-de-garde">
+            <img src="data:image/svg+xml;base64,${LOGO_B64}" alt="">
+            <h1>${TITLE_HTML}</h1>
+            <dl>
+          ${GARDE_ROWS}
+            </dl>
+          </div>
+          GARDE
+            printf '\n'
+            cat support-de-cours.md
+          } > support-avec-garde.md
+          mv support-avec-garde.md support-de-cours.md
 
           cat > pdf-options.json <<PDFOPTS
           {
@@ -399,15 +620,62 @@ jobs:
           }
           PDFOPTS
 
-          # L'intercalaire occupe une page entière : saut de page avant ET après.
-          # Sa hauteur (200 mm) reste sous la zone imprimable (297 - 24 - 20 =
+          # La page de garde comme l'intercalaire occupent une page entière.
+          # Leur hauteur (200 mm) reste sous la zone imprimable (297 - 24 - 20 =
           # 253 mm) pour ne pas déborder sur une page blanche supplémentaire.
+          # L'intercalaire prend un saut de page avant ET après ; la garde
+          # ouvrant le document, seul le saut après a un sens.
           #
           # Ces règles passent par `--css`, qui AJOUTE une feuille par-dessus
           # celles de md-to-pdf. `--stylesheet` remplacerait la liste par
           # défaut, et le document perdrait toute sa mise en forme (markdown.css
           # et la coloration syntaxique).
-          cat > intercalaires.css <<'CSS'
+          cat > support.css <<'CSS'
+          .page-de-garde {
+            page-break-after: always;
+            break-after: page;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200mm;
+            text-align: center;
+          }
+          .page-de-garde img {
+            width: 55mm;
+            margin-bottom: 18mm;
+          }
+          /* Le titre du document ouvre la page : il doit primer sur le style de
+             h1 de markdown.css, filet inférieur compris. */
+          .page-de-garde h1 {
+            font-size: 34px;
+            font-weight: 700;
+            line-height: 1.3;
+            max-width: 80%;
+            margin: 0 0 16mm;
+            padding: 0;
+            border: 0;
+          }
+          /* Chaque entrée sur sa ligne : libellé discret, valeur en dessous. */
+          .page-de-garde dl {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.5;
+          }
+          .page-de-garde dt {
+            color: #888;
+            font-size: 9px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin-top: 6mm;
+          }
+          .page-de-garde dd {
+            margin: 0;
+          }
+          .page-de-garde a {
+            color: inherit;
+            text-decoration: none;
+          }
           .intercalaire {
             page-break-before: always;
             page-break-after: always;
@@ -430,9 +698,12 @@ jobs:
           npx --yes "md-to-pdf@${MD_TO_PDF_VERSION}" support-de-cours.md \
             --document-title "$DOC_TITLE" \
             --launch-options "{\"executablePath\":\"${CHROME_BIN}\"}" \
-            --css "$(cat intercalaires.css)" \
+            --css "$(cat support.css)" \
             --pdf-options "$(cat pdf-options.json)"
-          mv support-de-cours.pdf ../dist/
+
+          # Le nom de travail reste neutre tout au long de l'assemblage — c'est
+          # à la sortie, et là seulement, que le document prend le nom du cours.
+          mv support-de-cours.pdf "../dist/${DOC_SLUG}-support-de-cours.pdf"
 
       # ------------------------------------------------------------- garde-fou
 
@@ -441,15 +712,20 @@ jobs:
       # été : le support toujours, les slides seulement si `slides.md` existe.
       - name: Vérifier les fichiers produits
         run: |
-          expected="dist/support-de-cours.pdf"
+          expected=("dist/${DOC_SLUG}-support-de-cours.pdf")
           if [ -f slides.md ]; then
-            expected="$expected dist/slides.pdf dist/slides.pptx dist/slides-white.pdf dist/slides-white.pptx"
+            expected+=(
+              "dist/${DOC_SLUG}-slides.pdf"
+              "dist/${DOC_SLUG}-slides.pptx"
+              "dist/${DOC_SLUG}-slides-white.pdf"
+              "dist/${DOC_SLUG}-slides-white.pptx"
+            )
           else
             echo "Pas de slides.md : aucune diapositive attendue."
           fi
 
           fail=0
-          for f in $expected; do
+          for f in "${expected[@]}"; do
             if [ ! -s "$f" ]; then
               echo "::error::$f absent ou vide"
               fail=1
