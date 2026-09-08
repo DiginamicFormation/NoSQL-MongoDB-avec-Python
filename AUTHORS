@@ -1,14 +1,1 @@
-# Signataire(s) du cours : une personne par ligne, dans l'ordre où les noms
-# doivent apparaître. Les lignes vides et celles commençant par « # » sont
-# ignorées.
-#
-# Ce nom est repris tel quel par le workflow Documents : il s'affiche sur la
-# page de garde du support (« Par … ») et ouvre la section « Crédits » en fin
-# de document.
-#
-# Inutile d'y lister les autres contributeurs : ils sont tirés de l'historique
-# git, et une personne citée ici n'est pas répétée parmi eux.
-#
-# Sans ce fichier, le document ne cite que les contributeurs.
-
 Jean-François Vial
