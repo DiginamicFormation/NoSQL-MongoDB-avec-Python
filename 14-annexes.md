@@ -127,23 +127,23 @@ mongoimport --uri="..." --collection=produits --file=produits.json --jsonArray
 
 ## F. Glossaire
 
-**BSON** - Binary JSON, le format de stockage et du protocole, typé et binaire.
-**Change stream** - flux temps réel des modifications d'une collection.
-**COLLSCAN / IXSCAN** - parcours de toute la collection / parcours d'index.
-**Collection** - l'équivalent d'une table ; ses documents peuvent avoir des formes différentes.
-**Document** - l'équivalent d'une ligne, arborescent, 16 Mo maximum.
-**ESR** - Equality, Sort, Range : l'ordre des champs dans un index composé.
-**`_id`** - clé primaire obligatoire, unique, immuable, indexée d'office.
-**Multikey** - index automatique sur un champ tableau, une entrée par élément.
-**`mongod` / `mongos` / `mongosh`** - le serveur / le routeur d'un cluster shardé / le shell.
-**ObjectId** - identifiant de 12 octets, approximativement croissant dans le temps.
-**Oplog** - journal des opérations, base de la réplication et des change streams.
-**Pipeline** - suite d'étapes de transformation, le langage d'agrégation.
-**Replica set** - groupe de nœuds répliqués avec bascule automatique ; requis pour les transactions et les change streams.
-**Shard** - partition horizontale des données sur plusieurs replica sets.
-**Upsert** - mise à jour qui crée le document s'il n'existe pas.
-**Validation** - règles JSON Schema appliquées par le serveur à l'écriture.
-**WiredTiger** - le moteur de stockage (verrous au niveau document, compression).
+* **BSON** - Binary JSON, le format de stockage et du protocole, typé et binaire.
+* **Change stream** - flux temps réel des modifications d'une collection.
+* **COLLSCAN / IXSCAN** - parcours de toute la collection / parcours d'index.
+* **Collection** - l'équivalent d'une table ; ses documents peuvent avoir des formes différentes.
+* **Document** - l'équivalent d'une ligne, arborescent, 16 Mo maximum.
+* **ESR** - Equality, Sort, Range : l'ordre des champs dans un index composé.
+* **`_id`** - clé primaire obligatoire, unique, immuable, indexée d'office.
+* **Multikey** - index automatique sur un champ tableau, une entrée par élément.
+* **`mongod` / `mongos` / `mongosh`** - le serveur / le routeur d'un cluster shardé / le shell.
+* **ObjectId** - identifiant de 12 octets, approximativement croissant dans le temps.
+* **Oplog** - journal des opérations, base de la réplication et des change streams.
+* **Pipeline** - suite d'étapes de transformation, le langage d'agrégation.
+* **Replica set** - groupe de nœuds répliqués avec bascule automatique ; requis pour les transactions et les change streams.
+* **Shard** - partition horizontale des données sur plusieurs replica sets.
+* **Upsert** - mise à jour qui crée le document s'il n'existe pas.
+* **Validation** - règles JSON Schema appliquées par le serveur à l'écriture.
+* **WiredTiger** - le moteur de stockage (verrous au niveau document, compression).
 
 ---
 
