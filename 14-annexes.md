@@ -149,12 +149,12 @@ mongoimport --uri="..." --collection=produits --file=produits.json --jsonArray
 
 ## G. Pour continuer
 
-- **Documentation Python officielle** - `mongodb.com/docs/languages/python/` : la structure CRUD de ce cours en est directement inspirée (*Insert · Query · Update · Replace · Delete · Bulk Write · Configure*).
-- **Manuel serveur et référence des opérateurs** - `mongodb.com/docs`.
-- **PyMongo** - `pymongo.readthedocs.io` : lisez le CHANGELOG à chaque montée de version.
-- **MongoDB University** - `learn.mongodb.com` : parcours gratuits et certification *Associate Developer*, disponibles en français.
-- **Building with Patterns** - la série d'articles officielle sur les patterns de modélisation (Subset, Computed, Bucket, Attribute…).
-- **MongoDB Compass** - pour explorer, et surtout pour l'onglet *Schema* : l'outil le plus rapide pour comprendre une collection hétérogène.
+- **Documentation Python officielle** - [`mongodb.com/docs/languages/python/`](https://www.mongodb.com/docs/languages/python/) : la structure CRUD de ce cours en est directement inspirée (*Insert · Query · Update · Replace · Delete · Bulk Write · Configure*).
+- **Manuel serveur et référence des opérateurs** - [`mongodb.com/docs`](https://www.mongodb.com/docs/).
+- **PyMongo** - [`pymongo.readthedocs.io`](https://pymongo.readthedocs.io/) : lisez le CHANGELOG à chaque montée de version.
+- **MongoDB University** - [`learn.mongodb.com`](https://learn.mongodb.com/) : parcours gratuits et certification *Associate Developer*, disponibles en français.
+- **Building with Patterns** - [`mongodb.com/company/blog/building-with-patterns-a-summary`](https://www.mongodb.com/company/blog/building-with-patterns-a-summary) : la série d'articles officielle sur les patterns de modélisation (Subset, Computed, Bucket, Attribute…).
+- **MongoDB Compass** - [`mongodb.com/products/tools/compass`](https://www.mongodb.com/products/tools/compass) : pour explorer, et surtout pour l'onglet *Schema* - l'outil le plus rapide pour comprendre une collection hétérogène.
 
 ---
 
