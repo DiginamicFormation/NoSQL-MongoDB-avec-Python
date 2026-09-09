@@ -12,8 +12,14 @@ load_dotenv()
 @lru_cache(maxsize=1)
 def get_client() -> MongoClient:
     """Un seul client par processus : il est thread-safe et gère son pool."""
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise SystemExit(
+            "MONGODB_URI est absent : copiez .env.example en .env "
+            "(cp .env.example .env) avant de lancer l'application."
+        )
     return MongoClient(
-        os.environ["MONGODB_URI"],
+        uri,
         serverSelectionTimeoutMS=5_000,   # échouer vite si le serveur est absent
         connectTimeoutMS=5_000,
         tz_aware=True,                    # datetime "aware", en UTC

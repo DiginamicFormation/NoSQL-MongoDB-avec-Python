@@ -4,7 +4,13 @@
 db.createUser({
   user: "app",
   pwd: "app-password",
-  roles: [{ role: "readWrite", db: "boutique" }]
+  roles: [
+    // dbOwner = readWrite + dbAdmin : nécessaire pour `collMod` (la validation
+    // JSON Schema de provision.py, rejouée à chaque `app.py init`).
+    { role: "dbOwner", db: "boutique" },
+    // La suite de tests travaille sur une base jetable, qu'elle crée et supprime.
+    { role: "dbOwner", db: "boutique_test" }
+  ]
 });
 
-print("utilisateur applicatif 'app' créé sur la base boutique");
+print("utilisateur applicatif 'app' créé sur boutique et boutique_test");

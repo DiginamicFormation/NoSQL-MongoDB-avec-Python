@@ -26,7 +26,8 @@ python -m venv .venv && source .venv/bin/activate    # Windows : .venv\Scripts\a
 pip install -r requirements.txt
 
 python db.py                      # vérifie la connexion
-python app.py init                # validation + index
+python app.py init                # validation + index (--strict pour refuser
+                                  # les documents non conformes)
 python app.py seed                # catalogue de démonstration
 ```
 
@@ -35,6 +36,7 @@ python app.py seed                # catalogue de démonstration
 ```bash
 python app.py list
 python app.py list --categorie clavier --max-prix 100
+python app.py list --taille 3 --apres <_id>   # pagination par curseur
 python app.py show ABO-0013       # un produit SANS champ stock
 python app.py add MSE-0030 "Souris compacte" souris 39.00 --stock 25
 python app.py set KBD-0010 nom "Clavier TKL v2"

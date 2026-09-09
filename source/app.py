@@ -1,8 +1,9 @@
 """Catalogue MongoDB - interface en ligne de commande (étape 13).
 
-    python app.py init
+    python app.py init [--strict]
     python app.py seed
     python app.py list [--categorie clavier] [--max-prix 150]
+                       [--taille 20] [--apres <_id>]
     python app.py show KBD-0010
     python app.py add SKU NOM CATEGORIE PRIX [--stock N]
     python app.py set KBD-0010 nom "Nouveau nom"
@@ -14,7 +15,7 @@
 import argparse
 import sys
 
-from bson import Decimal128
+from bson import Decimal128, ObjectId
 
 from db import get_db
 from provision import provisionner
@@ -49,11 +50,31 @@ CATALOGUE_DEMO = [
 ]
 
 
+# `set` recoit toujours des chaines : sans conversion, `set SKU prix 79.90`
+# remplacerait un Decimal128 par une string et le produit sortirait des
+# filtres numeriques (`--max-prix`). On convertit les champs du noyau typé.
+CONVERSIONS = {
+    "prix": lambda v: Decimal128(str(v)),
+    "stock": int,
+    "schema_version": int,
+    "tags": lambda v: [t.strip() for t in v.split(",") if t.strip()],
+}
+
+
+def convertir(champ: str, valeur: str):
+    try:
+        return CONVERSIONS.get(champ, lambda v: v)(valeur)
+    except Exception as exc:                 # noqa: BLE001 - message utilisateur
+        raise SystemExit(f"valeur invalide pour {champ} : {valeur!r} ({exc})")
+
+
 def construire_parseur() -> argparse.ArgumentParser:
     parseur = argparse.ArgumentParser(description="Catalogue MongoDB")
     sous = parseur.add_subparsers(dest="commande", required=True)
 
-    sous.add_parser("init", help="validation + index (réexécutable)")
+    p = sous.add_parser("init", help="validation + index (réexécutable)")
+    p.add_argument("--strict", action="store_true",
+                   help="validationLevel=strict + validationAction=error")
     sous.add_parser("seed", help="charge le catalogue de démonstration")
     sous.add_parser("audit", help="champs réellement présents et leurs types")
     sous.add_parser("stats", help="chiffres par catégorie")
@@ -61,6 +82,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     p = sous.add_parser("list", help="liste paginée")
     p.add_argument("--categorie")
     p.add_argument("--max-prix", dest="max_prix")
+    p.add_argument("--taille", type=int, default=20)
+    p.add_argument("--apres", help="_id du dernier produit de la page précédente")
 
     p = sous.add_parser("show", help="fiche complète")
     p.add_argument("sku")
@@ -92,7 +115,7 @@ def main() -> int:
 
     try:
         if args.commande == "init":
-            provisionner(strict=False)       # moderate/warn : voir étape 10
+            provisionner(strict=args.strict)   # moderate/warn par défaut : étape 10
             depot.initialiser()
             print("collection initialisée")
 
@@ -101,29 +124,33 @@ def main() -> int:
             print(f"{crees} créés, {majs} mis à jour - {depot.compter()} produits au total")
 
         elif args.commande == "list":
-            produits = depot.lister(args.categorie, args.max_prix)
+            apres = ObjectId(args.apres) if args.apres else None
+            produits = depot.lister(args.categorie, args.max_prix, apres, args.taille)
             if not produits:
                 print("aucun produit")
             for produit in produits:
                 stock = produit.get("stock", "-")        # champ optionnel !
                 print(f"{produit['sku']:<12}{produit['nom']:<32}"
                       f"{str(produit['prix']):>9} EUR   stock {stock}")
+            if len(produits) == args.taille:
+                print(f"... page suivante : --apres {produits[-1]['_id']}")
 
         elif args.commande == "show":
             commun, specifique = depot.decouper(depot.par_sku(args.sku))
+            largeur = max(len(c) for c in (*commun, *specifique))
             for cle, valeur in commun.items():
-                print(f"{cle:<16}: {valeur}")
+                print(f"{cle:<{largeur}} : {valeur}")
             if specifique:
                 print("--- spécifique à la famille ---")
                 for cle, valeur in specifique.items():
-                    print(f"{cle:<16}: {valeur}")
+                    print(f"{cle:<{largeur}} : {valeur}")
 
         elif args.commande == "add":
             depot.creer(args.sku, args.nom, args.categorie, args.prix, args.stock)
             print("créé")
 
         elif args.commande == "set":
-            change = depot.modifier(args.sku, {args.champ: args.valeur})
+            change = depot.modifier(args.sku, {args.champ: convertir(args.champ, args.valeur)})
             print("modifié" if change else "aucun changement (valeur identique)")
 
         elif args.commande == "reserve":
@@ -138,7 +165,9 @@ def main() -> int:
                 print("mis en corbeille (purge automatique dans 30 jours)")
 
         elif args.commande == "audit":
-            total = max(depot.compter(), 1)
+            # auditer() balaie TOUTE la collection : le total doit inclure
+            # la corbeille, sinon la presence depasse 100 %.
+            total = max(depot.compter(inclure_supprimes=True), 1)
             print(f"{'champ':<20}{'présence':>9}  types")
             print("-" * 56)
             for ligne in depot.auditer():

@@ -14,7 +14,7 @@ from bson.errors import InvalidId
 from pymongo import ASCENDING, DESCENDING, IndexModel, ReturnDocument, UpdateOne
 from pymongo.command_cursor import CommandCursor
 from pymongo.database import Database
-from pymongo.errors import DuplicateKeyError, WriteError
+from pymongo.errors import BulkWriteError, DuplicateKeyError, WriteError
 
 VERSION_SCHEMA = 1
 
@@ -93,15 +93,21 @@ class CatalogueRepository:
         if not catalogue:
             return (0, 0)
         maintenant = datetime.now(timezone.utc)
-        resultat = self.col.bulk_write([
-            UpdateOne(
-                {"sku": produit["sku"]},
-                {"$set": {**produit, "schema_version": VERSION_SCHEMA},
-                 "$setOnInsert": {"cree_le": maintenant}},   # jamais écrasé
-                upsert=True,
-            )
-            for produit in catalogue
-        ], ordered=False)
+        try:
+            resultat = self.col.bulk_write([
+                UpdateOne(
+                    {"sku": produit["sku"]},
+                    {"$set": {**produit, "schema_version": VERSION_SCHEMA},
+                     "$setOnInsert": {"cree_le": maintenant}},   # jamais écrasé
+                    upsert=True,
+                )
+                for produit in catalogue
+            ], ordered=False)
+        except BulkWriteError as exc:
+            erreurs = exc.details.get("writeErrors", []) if exc.details else []
+            if any(e.get("code") == 11000 for e in erreurs):
+                raise ProduitDejaExistant(str(erreurs)) from exc
+            raise DocumentInvalide(str(erreurs)) from exc
         return (resultat.upserted_count, resultat.modified_count)
 
     # ------------------------------------------------------------- read
@@ -140,25 +146,41 @@ class CatalogueRepository:
                     .limit(taille)
         )
 
-    def compter(self, categorie: str | None = None) -> int:
-        filtre: dict[str, Any] = {"supprime_le": {"$exists": False}}
+    def compter(self, categorie: str | None = None,
+                inclure_supprimes: bool = False) -> int:
+        filtre: dict[str, Any] = {}
+        if not inclure_supprimes:
+            filtre["supprime_le"] = {"$exists": False}
         if categorie:
             filtre["categorie"] = categorie
         return self.col.count_documents(filtre)
 
     # ----------------------------------------------------------- update
     def modifier(self, sku: str, champs: dict[str, Any]) -> bool:
-        """Modifie des champs. Renvoie True si quelque chose a changé."""
+        """Modifie des champs. Renvoie True si quelque chose a changé.
+
+        La condition "au moins un champ diffère" est dans le FILTRE : sinon
+        `$currentDate` réécrirait `maj_le` à chaque appel et le retour serait
+        toujours True, même sur une valeur identique.
+        """
         interdits = [c for c in champs if c.startswith("$") or "." in c or c == "_id"]
         if interdits:
             raise DocumentInvalide(f"champs interdits : {interdits}")
-        resultat = self.col.update_one(
-            {"sku": sku, "supprime_le": {"$exists": False}},
-            {"$set": champs, "$currentDate": {"maj_le": True}},
-        )
+        if not champs:
+            self.par_sku(sku)                 # lève ProduitIntrouvable si absent
+            return False
+        filtre = {"sku": sku, "supprime_le": {"$exists": False},
+                  "$or": [{cle: {"$ne": valeur}} for cle, valeur in champs.items()]}
+        try:
+            resultat = self.col.update_one(
+                filtre, {"$set": champs, "$currentDate": {"maj_le": True}})
+        except WriteError as exc:
+            details = exc.details.get("errInfo", exc.details) if exc.details else exc
+            raise DocumentInvalide(str(details)) from exc
         if resultat.matched_count == 0:
-            raise ProduitIntrouvable(sku)
-        return resultat.modified_count == 1
+            self.par_sku(sku)                 # lève ProduitIntrouvable si absent
+            return False                      # présent, mais déjà à jour
+        return True
 
     def reserver(self, sku: str, quantite: int) -> dict[str, Any]:
         """Décrémente le stock atomiquement, jamais en dessous de zéro.
