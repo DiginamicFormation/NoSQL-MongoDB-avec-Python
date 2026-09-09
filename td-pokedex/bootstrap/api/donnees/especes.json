@@ -1,0 +1,350 @@
+[
+  {
+    "numero": 1,
+    "nom": "Dev Python",
+    "famille": "backend",
+    "langages": ["python"],
+    "stade": 1,
+    "xp": 4200,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Pythonet", "annees_xp": 0, "salaire": { "$numberDecimal": "34000" }, "attaques": ["copier-coller de StackOverflow", "print de debug"] },
+      { "niveau": "mature", "titre": "Pythonier", "annees_xp": 3, "salaire": { "$numberDecimal": "45000" }, "attaques": ["comprehension de liste", "annotation de type"] },
+      { "niveau": "senior", "titre": "Serpython", "annees_xp": 7, "salaire": { "$numberDecimal": "58000" }, "attaques": ["decorateur maison", "profilage"] },
+      { "niveau": "gourou", "titre": "Grand Serpent", "annees_xp": 12, "salaire": { "$numberDecimal": "72000" }, "attaques": ["metaclasse", "PEP acceptee"] }
+    ],
+    "habitats": [
+      { "lieu": "Station F, Paris", "point": { "type": "Point", "coordinates": [2.3708, 48.8352] } },
+      { "lieu": "Toulouse", "point": { "type": "Point", "coordinates": [1.4442, 43.6047] } },
+      { "lieu": "Nantes", "point": { "type": "Point", "coordinates": [-1.5536, 47.2184] } }
+    ],
+    "frameworks": ["django", "fastapi"],
+    "gestionnaire_paquets": "uv",
+    "type_statique": false,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 2,
+    "nom": "Dev Java",
+    "famille": "backend",
+    "langages": ["java", "kotlin"],
+    "stade": 2,
+    "xp": 15800,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Javaton", "annees_xp": 0, "salaire": { "$numberDecimal": "36000" }, "attaques": ["getter setter", "NullPointerException"] },
+      { "niveau": "mature", "titre": "Javarien", "annees_xp": 3, "salaire": { "$numberDecimal": "48000" }, "attaques": ["injection de dependance", "stream"] },
+      { "niveau": "senior", "titre": "Cafetier", "annees_xp": 8, "salaire": { "$numberDecimal": "62000" }, "attaques": ["reglage du GC", "annotation maison"] },
+      { "niveau": "gourou", "titre": "Maitre des Beans", "annees_xp": 14, "salaire": { "$numberDecimal": "78000" }, "attaques": ["JVM patchee", "specification JSR"] }
+    ],
+    "habitats": [
+      { "lieu": "La Defense, Courbevoie", "point": { "type": "Point", "coordinates": [2.2378, 48.8918] } },
+      { "lieu": "Lille", "point": { "type": "Point", "coordinates": [3.0573, 50.6292] } },
+      { "lieu": "Lyon Part-Dieu", "point": { "type": "Point", "coordinates": [4.8592, 45.7605] } }
+    ],
+    "frameworks": ["spring boot", "quarkus"],
+    "gestionnaire_paquets": "maven",
+    "type_statique": true,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 3,
+    "nom": "Dev PHP",
+    "famille": "backend",
+    "langages": ["php"],
+    "stade": 1,
+    "xp": 3100,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Phpiou", "annees_xp": 0, "salaire": { "$numberDecimal": "30000" }, "attaques": ["echo dans le HTML", "var_dump"] },
+      { "niveau": "mature", "titre": "Elephanteau", "annees_xp": 3, "salaire": { "$numberDecimal": "41000" }, "attaques": ["composer require", "trait"] },
+      { "niveau": "senior", "titre": "Elephant", "annees_xp": 7, "salaire": { "$numberDecimal": "54000" }, "attaques": ["Doctrine dompte", "cache OPcache"] },
+      { "niveau": "gourou", "titre": "Elephantesque", "annees_xp": 13, "salaire": { "$numberDecimal": "66000" }, "attaques": ["extension en C", "RFC acceptee"] }
+    ],
+    "habitats": [
+      { "lieu": "Marseille", "point": { "type": "Point", "coordinates": [5.3698, 43.2965] } },
+      { "lieu": "Montpellier", "point": { "type": "Point", "coordinates": [3.8767, 43.6108] } }
+    ],
+    "frameworks": ["symfony", "laravel"],
+    "gestionnaire_paquets": "composer",
+    "type_statique": false,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 4,
+    "nom": "Dev Node",
+    "famille": "backend",
+    "langages": ["javascript", "typescript"],
+    "stade": 0,
+    "xp": 400,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Nodounet", "annees_xp": 0, "salaire": { "$numberDecimal": "33000" }, "attaques": ["callback imbrique", "console.log"] },
+      { "niveau": "mature", "titre": "Nodiste", "annees_xp": 2, "salaire": { "$numberDecimal": "45000" }, "attaques": ["async await", "middleware express"] },
+      { "niveau": "senior", "titre": "Boucle d'Evenements", "annees_xp": 6, "salaire": { "$numberDecimal": "58000" }, "attaques": ["worker thread", "flux binaire"] },
+      { "niveau": "gourou", "titre": "Maitre du Non-Bloquant", "annees_xp": 11, "salaire": { "$numberDecimal": "71000" }, "attaques": ["addon natif", "patch V8"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 2e", "point": { "type": "Point", "coordinates": [2.3417, 48.8686] } },
+      { "lieu": "Bordeaux", "point": { "type": "Point", "coordinates": [-0.5792, 44.8378] } }
+    ],
+    "frameworks": ["express", "nestjs"],
+    "gestionnaire_paquets": "pnpm",
+    "type_statique": false,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 5,
+    "nom": "Dev Ruby",
+    "famille": "backend",
+    "langages": ["ruby"],
+    "stade": 2,
+    "xp": 9600,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Rubiton", "annees_xp": 0, "salaire": { "$numberDecimal": "34000" }, "attaques": ["scaffold genere", "puts"] },
+      { "niveau": "mature", "titre": "Rubiste", "annees_xp": 3, "salaire": { "$numberDecimal": "47000" }, "attaques": ["bloc et yield", "concern"] },
+      { "niveau": "senior", "titre": "Joaillier", "annees_xp": 7, "salaire": { "$numberDecimal": "60000" }, "attaques": ["method_missing", "gem publiee"] },
+      { "niveau": "gourou", "titre": "Pierre Precieuse", "annees_xp": 13, "salaire": { "$numberDecimal": "73000" }, "attaques": ["DSL maison", "patch MRI"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 11e", "point": { "type": "Point", "coordinates": [2.3795, 48.8595] } },
+      { "lieu": "Rennes", "point": { "type": "Point", "coordinates": [-1.6778, 48.1173] } }
+    ],
+    "frameworks": ["rails", "sinatra"],
+    "gestionnaire_paquets": "bundler",
+    "type_statique": false,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 6,
+    "nom": "Dev Angular",
+    "famille": "frontend",
+    "langages": ["typescript"],
+    "stade": 2,
+    "xp": 11200,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Angulon", "annees_xp": 0, "salaire": { "$numberDecimal": "34000" }, "attaques": ["ngIf", "ngFor"] },
+      { "niveau": "mature", "titre": "Angulaire", "annees_xp": 3, "salaire": { "$numberDecimal": "46000" }, "attaques": ["service injecte", "operateur RxJS"] },
+      { "niveau": "senior", "titre": "Trigonometre", "annees_xp": 7, "salaire": { "$numberDecimal": "59000" }, "attaques": ["detection de changement OnPush", "signal"] },
+      { "niveau": "gourou", "titre": "Grand Angle", "annees_xp": 12, "salaire": { "$numberDecimal": "72000" }, "attaques": ["schematic maison", "compilateur Ivy"] }
+    ],
+    "habitats": [
+      { "lieu": "La Defense, Puteaux", "point": { "type": "Point", "coordinates": [2.2306, 48.8867] } },
+      { "lieu": "Grenoble", "point": { "type": "Point", "coordinates": [5.7245, 45.1885] } }
+    ],
+    "bundler": "esbuild",
+    "reactivite": "signaux",
+    "taille_bundle_ko": 148,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 7,
+    "nom": "Dev React",
+    "famille": "frontend",
+    "langages": ["javascript", "typescript"],
+    "stade": 1,
+    "xp": 5400,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Reactounet", "annees_xp": 0, "salaire": { "$numberDecimal": "33000" }, "attaques": ["useState", "prop drilling"] },
+      { "niveau": "mature", "titre": "Reactiste", "annees_xp": 2, "salaire": { "$numberDecimal": "46000" }, "attaques": ["hook maison", "contexte"] },
+      { "niveau": "senior", "titre": "Reconciliateur", "annees_xp": 6, "salaire": { "$numberDecimal": "60000" }, "attaques": ["memo cible", "suspense"] },
+      { "niveau": "gourou", "titre": "Fibre Vivante", "annees_xp": 11, "salaire": { "$numberDecimal": "74000" }, "attaques": ["moteur de rendu maison", "RFC React"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 9e", "point": { "type": "Point", "coordinates": [2.3387, 48.8760] } },
+      { "lieu": "Lyon Confluence", "point": { "type": "Point", "coordinates": [4.8158, 45.7407] } },
+      { "lieu": "Nice", "point": { "type": "Point", "coordinates": [7.2620, 43.7102] } }
+    ],
+    "bundler": "vite",
+    "reactivite": "vdom",
+    "taille_bundle_ko": 92,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 8,
+    "nom": "Dev Svelte",
+    "famille": "frontend",
+    "langages": ["javascript", "typescript"],
+    "stade": 0,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Sveltounet", "annees_xp": 0, "salaire": { "$numberDecimal": "33000" }, "attaques": ["$state", "onclick"] },
+      { "niveau": "mature", "titre": "Sveltiste", "annees_xp": 2, "salaire": { "$numberDecimal": "44000" }, "attaques": ["$derived", "snippet"] },
+      { "niveau": "senior", "titre": "Sveltemaitre", "annees_xp": 6, "salaire": { "$numberDecimal": "56000" }, "attaques": ["rune maison", "rendu serveur"] },
+      { "niveau": "gourou", "titre": "Compilateur Vivant", "annees_xp": 10, "salaire": { "$numberDecimal": "68000" }, "attaques": ["plugin de compilation"] }
+    ],
+    "habitats": [
+      { "lieu": "Nantes", "point": { "type": "Point", "coordinates": [-1.5536, 47.2184] } },
+      { "lieu": "Lyon 7e", "point": { "type": "Point", "coordinates": [4.8420, 45.7333] } }
+    ],
+    "bundler": "vite",
+    "reactivite": "compilation",
+    "taille_bundle_ko": 12,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 9,
+    "nom": "Dev Vue",
+    "famille": "frontend",
+    "langages": ["javascript", "typescript"],
+    "stade": 1,
+    "xp": 6100,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Vuiton", "annees_xp": 0, "salaire": { "$numberDecimal": "32000" }, "attaques": ["v-if", "v-for"] },
+      { "niveau": "mature", "titre": "Vuiste", "annees_xp": 2, "salaire": { "$numberDecimal": "44000" }, "attaques": ["composable", "ref reactive"] },
+      { "niveau": "senior", "titre": "Panorama", "annees_xp": 6, "salaire": { "$numberDecimal": "57000" }, "attaques": ["directive maison", "teleport"] },
+      { "niveau": "gourou", "titre": "Point de Vue", "annees_xp": 11, "salaire": { "$numberDecimal": "70000" }, "attaques": ["moteur de reactivite maison"] }
+    ],
+    "habitats": [
+      { "lieu": "Strasbourg", "point": { "type": "Point", "coordinates": [7.7521, 48.5734] } },
+      { "lieu": "Toulouse", "point": { "type": "Point", "coordinates": [1.4442, 43.6047] } }
+    ],
+    "bundler": "vite",
+    "reactivite": "vdom",
+    "taille_bundle_ko": 58,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 10,
+    "nom": "Data scientist",
+    "famille": "data",
+    "langages": ["python", "r", "sql"],
+    "stade": 2,
+    "xp": 13400,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Notebookeur", "annees_xp": 0, "salaire": { "$numberDecimal": "38000" }, "attaques": ["df.head()", "graphique par defaut"] },
+      { "niveau": "mature", "titre": "Analyste", "annees_xp": 3, "salaire": { "$numberDecimal": "50000" }, "attaques": ["validation croisee", "ingenierie de variables"] },
+      { "niveau": "senior", "titre": "Statisticien", "annees_xp": 7, "salaire": { "$numberDecimal": "65000" }, "attaques": ["test d'hypothese", "chaine de traitement reproductible"] },
+      { "niveau": "gourou", "titre": "Oracle des Donnees", "annees_xp": 13, "salaire": { "$numberDecimal": "82000" }, "attaques": ["article publie", "modele causal"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 13e", "point": { "type": "Point", "coordinates": [2.3650, 48.8322] } },
+      { "lieu": "Saclay", "point": { "type": "Point", "coordinates": [2.1667, 48.7314] } },
+      { "lieu": "Grenoble", "point": { "type": "Point", "coordinates": [5.7245, 45.1885] } }
+    ],
+    "librairies": ["pandas", "scikit-learn", "polars"],
+    "gpu_requis": false,
+    "niveau_maths": 4,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 11,
+    "nom": "Specialiste IA",
+    "famille": "data",
+    "langages": ["python"],
+    "stade": 3,
+    "xp": 48000,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Promptineur", "annees_xp": 0, "salaire": { "$numberDecimal": "42000" }, "attaques": ["appel d'API", "prompt recopie"] },
+      { "niveau": "mature", "titre": "Affineur", "annees_xp": 2, "salaire": { "$numberDecimal": "58000" }, "attaques": ["RAG", "evaluation automatique"] },
+      { "niveau": "senior", "titre": "Architecte de Modeles", "annees_xp": 6, "salaire": { "$numberDecimal": "78000" }, "attaques": ["quantification", "distillation"] },
+      { "niveau": "gourou", "titre": "Reveilleur de Machines", "annees_xp": 10, "salaire": { "$numberDecimal": "105000" }, "attaques": ["pre-entrainement", "loi d'echelle"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 8e", "point": { "type": "Point", "coordinates": [2.3070, 48.8738] } },
+      { "lieu": "Saclay", "point": { "type": "Point", "coordinates": [2.1667, 48.7314] } }
+    ],
+    "librairies": ["pytorch", "transformers", "vllm"],
+    "gpu_requis": true,
+    "niveau_maths": 5,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 12,
+    "nom": "Specialiste cybersecurite",
+    "famille": "securite",
+    "langages": ["python", "go", "bash"],
+    "stade": 2,
+    "xp": 21000,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Scriptomane", "annees_xp": 0, "salaire": { "$numberDecimal": "37000" }, "attaques": ["scan de ports", "lecture de CVE"] },
+      { "niveau": "mature", "titre": "Auditeur", "annees_xp": 3, "salaire": { "$numberDecimal": "52000" }, "attaques": ["test d'intrusion", "durcissement"] },
+      { "niveau": "senior", "titre": "Chasseur de Failles", "annees_xp": 7, "salaire": { "$numberDecimal": "68000" }, "attaques": ["retro-ingenierie", "reponse a incident"] },
+      { "niveau": "gourou", "titre": "Gardien du Perimetre", "annees_xp": 13, "salaire": { "$numberDecimal": "88000" }, "attaques": ["zero-day responsable", "modele de menace"] }
+    ],
+    "habitats": [
+      { "lieu": "Rennes", "point": { "type": "Point", "coordinates": [-1.6778, 48.1173] } },
+      { "lieu": "Paris 15e", "point": { "type": "Point", "coordinates": [2.2977, 48.8412] } },
+      { "lieu": "Toulon", "point": { "type": "Point", "coordinates": [5.9280, 43.1242] } }
+    ],
+    "certifications": ["OSCP", "CISSP"],
+    "chapeau": "blanc",
+    "habilitation": "confidentiel-defense",
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 13,
+    "nom": "DevOps",
+    "famille": "infra",
+    "langages": ["bash", "go", "yaml"],
+    "stade": 1,
+    "xp": 7300,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Yamlier", "annees_xp": 0, "salaire": { "$numberDecimal": "36000" }, "attaques": ["copier un pipeline", "docker run"] },
+      { "niveau": "mature", "titre": "Pipelinier", "annees_xp": 3, "salaire": { "$numberDecimal": "49000" }, "attaques": ["Terraform applique", "graphique de supervision"] },
+      { "niveau": "senior", "titre": "Orchestrateur", "annees_xp": 7, "salaire": { "$numberDecimal": "64000" }, "attaques": ["operateur Kubernetes", "budget d'erreur"] },
+      { "niveau": "gourou", "titre": "Maitre des Nuages", "annees_xp": 12, "salaire": { "$numberDecimal": "80000" }, "attaques": ["multi-region actif-actif", "astreinte supprimee"] }
+    ],
+    "habitats": [
+      { "lieu": "Roubaix", "point": { "type": "Point", "coordinates": [3.1746, 50.6942] } },
+      { "lieu": "Paris 12e", "point": { "type": "Point", "coordinates": [2.3878, 48.8400] } },
+      { "lieu": "Gravelines", "point": { "type": "Point", "coordinates": [2.1281, 50.9861] } }
+    ],
+    "outils": ["terraform", "kubernetes", "ansible"],
+    "nuages": ["ovh", "aws"],
+    "astreinte": true,
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 900,
+    "nom": "Dev Perl",
+    "famille": "backend",
+    "langages": ["perl"],
+    "stade": 3,
+    "xp": 90000,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Chamelon", "annees_xp": 0, "salaire": { "$numberDecimal": "14000" }, "attaques": ["script CGI", "print STDERR"] },
+      { "niveau": "mature", "titre": "Chamelier", "annees_xp": 4, "salaire": { "$numberDecimal": "20000" }, "attaques": ["expression reguliere illisible", "module CPAN"] },
+      { "niveau": "senior", "titre": "Dromadaire", "annees_xp": 9, "salaire": { "$numberDecimal": "26000" }, "attaques": ["une ligne de 300 caracteres", "tie"] },
+      { "niveau": "gourou", "titre": "Chameau Sacre", "annees_xp": 20, "salaire": { "$numberDecimal": "30000" }, "attaques": ["Perl golf", "source filter"] }
+    ],
+    "habitats": [
+      { "lieu": "Paris 5e", "point": { "type": "Point", "coordinates": [2.3450, 48.8462] } }
+    ],
+    "frameworks": ["catalyst"],
+    "gestionnaire_paquets": "cpan",
+    "type_statique": false,
+    "eteinte_le": { "$date": "2026-09-01T08:00:00Z" },
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 1
+  },
+  {
+    "numero": 901,
+    "nom": "Dev TurboPascal",
+    "famille": "backend",
+    "language": "pascal",
+    "stade": 3,
+    "xp": 120000,
+    "evolutions": [
+      { "niveau": "junior", "titre": "Pascalin", "annees_xp": 0, "salaire": { "$numberDecimal": "12000" }, "attaques": ["begin end", "writeln"] },
+      { "niveau": "mature", "titre": "Turbotin", "annees_xp": 4, "salaire": { "$numberDecimal": "18000" }, "attaques": ["unit", "pointeur"] },
+      { "niveau": "senior", "titre": "Delphinien", "annees_xp": 9, "salaire": { "$numberDecimal": "24000" }, "attaques": ["composant VCL"] },
+      { "niveau": "gourou", "titre": "Ancien", "annees_xp": 20, "salaire": { "$numberDecimal": "28000" }, "attaques": ["assembleur en ligne"] }
+    ],
+    "habitats": [
+      { "lieu": "Charleroi", "point": { "type": "Point", "coordinates": [4.4446, 50.4108] } }
+    ],
+    "frameworks": ["vcl"],
+    "eteinte_le": { "$date": "2026-09-01T08:00:00Z" },
+    "cree_le": { "$date": "2026-09-01T08:00:00Z" },
+    "schema_version": 0
+  }
+]

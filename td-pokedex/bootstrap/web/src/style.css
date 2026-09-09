@@ -1,0 +1,45 @@
+:root {
+  --fond: #f6f5f2;
+  --carte: #ffffff;
+  --trait: #ddd8d0;
+  --texte: #23201c;
+  --doux: #6d675f;
+  --accent: #2f6f4f;
+  --alerte: #a63d40;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--trait);
+  background: var(--carte);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+button:hover:not(:disabled) { border-color: var(--doux); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+input, select {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--trait);
+  border-radius: 6px;
+  background: var(--carte);
+  color: inherit;
+}
+
+h1, h2, h3 { margin: 0 0 .5rem; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--trait); }
+th { color: var(--doux); font-weight: 600; }
+code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .92em; }

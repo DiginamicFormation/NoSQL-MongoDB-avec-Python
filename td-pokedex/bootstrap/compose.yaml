@@ -1,0 +1,54 @@
+# Nom de projet explicite : sans lui, Compose le deduit du nom du dossier parent,
+# qui contient ici des espaces et des majuscules - et refuse de demarrer.
+name: pokedex
+
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: pokedex-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT_MONGO:-27018}:27017"   # 27018 : ne heurte pas le MongoDB du cours
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-change-moi}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-pokedex}
+    volumes:
+      - mongo-data:/data/db
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build: ./api
+    container_name: pokedex-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT_API:-8000}:8000"
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://app:app-password@mongo:27017/pokedex?authSource=pokedex}
+      MONGODB_DB: ${MONGODB_DB:-pokedex}
+      # Sous Windows, la surveillance de fichiers sur volume monté rate des
+      # evenements : decommentez si `--reload` ne repere pas vos modifications.
+      # WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./api:/app          # vos modifications sont prises en compte a chaud
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    container_name: pokedex-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT_WEB:-8080}:80"
+    depends_on:
+      - api
+
+volumes:
+  mongo-data:
