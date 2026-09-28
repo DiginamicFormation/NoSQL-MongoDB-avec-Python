@@ -292,6 +292,11 @@ jobs:
       # ---------------------------------------------------------------- slides
 
       # Les cinq étapes qui suivent ne s'exécutent que si `slides.md` existe.
+      #
+      # `--allow-local-files` : pour produire un PDF ou un PPTX, Marp passe par
+      # un navigateur, et lui interdit par défaut de lire les fichiers locaux.
+      # Sans ce drapeau, une image du dépôt (`./res/logo.png`) resterait vide.
+      # Les fichiers lus sont ceux du dépôt lui-même : l'accès est sans risque.
 
       - name: Générer les diapositives en PDF
         if: hashFiles('slides.md') != ''
@@ -299,6 +304,7 @@ jobs:
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
             --pdf \
             --pdf-outlines \
+            --allow-local-files \
             --output "dist/${DOC_SLUG}-slides.pdf"
 
       - name: Générer les diapositives en PPTX
@@ -306,37 +312,67 @@ jobs:
         run: |
           npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides.md \
             --pptx \
+            --allow-local-files \
             --output "dist/${DOC_SLUG}-slides.pptx"
 
-      # Deux transformations : on retire le bloc `style:` (fond sombre), puis on
-      # échange le logo du footer. Le PNG « -blk » est fait pour le fond sombre ;
-      # sur fond blanc, c'est le SVG couleur qu'il faut.
+      # Deux transformations : on remplace le bloc `style:` (fond sombre) par
+      # `WHITE_STYLE`, puis on échange le logo du footer. Le PNG « -blk » est
+      # fait pour le fond sombre ; sur fond blanc, c'est le SVG couleur qu'il faut.
+      #
+      # La version white est écrite à la racine, à côté de `slides.md`, et non
+      # dans `build/` : Marp résout les chemins des images par rapport au
+      # fichier Markdown, et `./res/logo.png` doit y désigner la même image.
+      #
+      # `WHITE_STYLE` ne porte que ce qui ne dépend pas du fond (tailles de
+      # police, encadré des citations…) : les couleurs restent celles du thème
+      # par défaut. La bordure verte des citations fait exception, lisible sur
+      # les deux fonds. Une règle de ce genre ajoutée au style de `slides.md`
+      # doit donc être reportée ici, à l'identique.
+      #
+      # Le remplacement du style est borné au front matter — le premier bloc
+      # `---` du fichier. Sans cette borne, un bloc `style:` cité en exemple dans
+      # une diapositive serait vidé lui aussi, et la diapositive qui explique le
+      # gabarit se contredirait d'une version à l'autre.
+      #
+      # L'échange de logo, lui, reste global : une diapositive qui affiche le
+      # logo sombre dans son corps doit passer au logo couleur comme le pied de
+      # page. Le nom du fichier cité dans un exemple y sera donc échangé aussi.
       - name: Préparer la version white
         if: hashFiles('slides.md') != ''
+        env:
+          WHITE_STYLE: |
+            style: |
+              section table {font-size: 0.85em}
+              blockquote {border: 2px green solid; border-left-width: 15px; padding: 0.5em 15px;font-style: italic }
         run: |
           awk '
-            $0 == "style: |" { skip=1; next }
-            skip && $0 ~ /^  / { next }
-            skip { skip=0 }
+            NR == 1 && $0 == "---" { fm = 1; print; next }
+            fm && $0 == "---"      { fm = 0; skip = 0; printf "%s", ENVIRON["WHITE_STYLE"]; print; next }
+            fm && $0 ~ /^style:[[:space:]]*[|>]/ { skip = 1; next }
+            skip && $0 ~ /^[[:space:]]/ { next }
+            skip { skip = 0 }
             { print }
           ' slides.md \
           | sed 's|Logo-diginamic-color-blk\.png|Logo-diginamic-color.svg|g' \
-          > build/slides-white.md
-          grep -n Logo-diginamic build/slides-white.md
+          > slides-white.md
+          sed -n '1,/^---$/p' slides-white.md
+          grep -n Logo-diginamic slides-white.md
 
       - name: Générer les diapositives white en PDF
         if: hashFiles('slides.md') != ''
         run: |
-          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides-white.md \
             --pdf \
             --pdf-outlines \
+            --allow-local-files \
             --output "dist/${DOC_SLUG}-slides-white.pdf"
 
       - name: Générer les diapositives white en PPTX
         if: hashFiles('slides.md') != ''
         run: |
-          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" build/slides-white.md \
+          npx --yes "@marp-team/marp-cli@${MARP_VERSION}" slides-white.md \
             --pptx \
+            --allow-local-files \
             --output "dist/${DOC_SLUG}-slides-white.pptx"
 
       # --------------------------------------------------------------- support
@@ -491,11 +527,100 @@ jobs:
 
           node build/rewrite-links.js build/support-de-cours.md build/anchors.tsv
 
-          # Garde-fou : plus aucun lien ne doit pointer vers un fichier .md.
-          if grep -n '](\S*\.md' build/support-de-cours.md; then
-            echo "::error::Des liens vers des fichiers .md subsistent dans le support."
+          # Garde-fou : plus aucun lien relatif ne doit pointer vers un fichier
+          # .md. Les URL absolues sont exclues, comme dans le script : un lien
+          # vers le `.md` d'un autre dépôt (le cours, sur GitHub) reste un lien
+          # web valide dans le PDF.
+          if grep -nP '\]\(\s*(?!(?i:https?:|mailto:|tel:)|#)\S*\.md' build/support-de-cours.md; then
+            echo "::error::Des liens relatifs vers des fichiers .md subsistent dans le support."
             exit 1
           fi
+
+      # Les chemins des images locales (`./res/logo.png`) sont écrits depuis la
+      # racine du dépôt, où vivent le Readme et les chapitres. Le support, lui,
+      # est assemblé et converti dans `build/`, et md-to-pdf y résout ces
+      # chemins par rapport au document : ils n'y mènent plus à rien, et le PDF
+      # garderait des cadres vides. Chaque image locale référencée est donc
+      # recopiée dans `build/`, au même chemin relatif.
+      #
+      # Recopier plutôt qu'intégrer en data URI : md-to-pdf ouvre d'abord le
+      # Markdown lui-même comme page de base, et quelques centaines de Ko de
+      # base64 sur une ligne suffisent à lui faire dépasser son délai.
+      #
+      # L'étape passe avant le rendu mermaid : les SVG que produit mermaid-cli
+      # sont écrits dans `build/`, à côté du document, et s'y trouvent déjà.
+      - name: Recopier les images locales du support
+        run: |
+          cat > build/stage-images.js <<'JS'
+          const fs = require('fs');
+          const path = require('path');
+
+          const [, , mdPath, rootDir, destDir] = process.argv;
+          const root = path.resolve(rootDir);
+          const dest = path.resolve(destDir);
+
+          // Un schéma (`https:`, `data:`…), `//` ou `#` : rien à recopier.
+          const NOT_LOCAL = /^([a-z][a-z0-9+.-]*:|\/\/|#)/i;
+
+          // Un code en ligne d'abord, pour le laisser de côté : `![alt](x.png)`
+          // cité dans un cours de Markdown est un exemple, pas une image. Puis
+          // une image Markdown, puis une balise <img>.
+          const TOKEN =
+            /(`+).*?\1|!\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)|<img\b[^>]*?\bsrc\s*=\s*(["'])(.*?)\3/gi;
+
+          const copied = new Set();
+          const missing = [];
+
+          const stage = (target) => {
+            if (NOT_LOCAL.test(target)) return;
+
+            let rel = target.split(/[?#]/)[0];
+            try {
+              rel = decodeURIComponent(rel);
+            } catch {
+              // Cible non décodable : gardée telle quelle pour la recherche.
+            }
+
+            // `/res/x.png` désigne, comme sur GitHub, la racine du dépôt.
+            rel = path.normalize(rel.replace(/^\/+/, ''));
+            const src = path.join(root, rel);
+            const outside = rel === '..' || rel.startsWith(`..${path.sep}`);
+            if (outside || !fs.statSync(src, { throwIfNoEntry: false })?.isFile()) {
+              missing.push(target);
+              return;
+            }
+
+            if (copied.has(rel)) return;
+            fs.mkdirSync(path.dirname(path.join(dest, rel)), { recursive: true });
+            fs.copyFileSync(src, path.join(dest, rel));
+            copied.add(rel);
+          };
+
+          let inFence = false;
+
+          for (const line of fs.readFileSync(mdPath, 'utf8').split('\n')) {
+            if (/^\s*(```|~~~)/.test(line)) {
+              inFence = !inFence;
+              continue;
+            }
+            if (inFence) continue;
+
+            for (const [, ticks, mdTarget, , imgTarget] of line.matchAll(TOKEN)) {
+              if (ticks) continue;
+              stage(mdTarget ? mdTarget.replace(/^<|>$/g, '') : imgTarget);
+            }
+          }
+
+          console.log(`Images locales recopiées dans ${path.relative(root, dest)}/ : ${copied.size}`);
+          for (const rel of copied) console.log(`  - ${rel}`);
+          // Garde-fou : une image introuvable serait un cadre vide dans le PDF.
+          for (const target of missing) {
+            console.log(`::error::Image locale introuvable : ${target}`);
+          }
+          if (missing.length) process.exit(1);
+          JS
+
+          node build/stage-images.js build/support-de-cours.md . build
 
       # Les crédits ferment le document. Ils sont ajoutés après la conversion
       # des liens : ils n'en contiennent aucun vers un `.md`, et l'adresse entre
@@ -530,6 +655,13 @@ jobs:
       # md-to-pdf rendrait un bloc mermaid en bloc de code brut : mermaid-cli le
       # remplace d'abord par un SVG. L'étape lance un Chrome, donc on la saute
       # quand le document assemblé ne contient aucun diagramme.
+      #
+      # Par défaut, mermaid produit des SVG en `width="100%"`, sans taille
+      # propre : dans le PDF, chaque diagramme s'étire alors sur toute la
+      # largeur de la page, et un diagramme vertical (`flowchart TD`) déborde
+      # sur deux ou trois pages. `useMaxWidth: false` leur rend leur taille
+      # naturelle ; la feuille de style du support les réduit ensuite, si
+      # besoin, à la zone imprimable.
       - name: Rendre les diagrammes mermaid
         working-directory: build
         run: |
@@ -538,9 +670,27 @@ jobs:
             exit 0
           fi
           export PUPPETEER_EXECUTABLE_PATH="$CHROME_BIN"
+
+          # Une clé par type de diagramme : mermaid n'a pas de réglage global.
+          cat > mermaid-config.json <<'JSON'
+          {
+            "flowchart": { "useMaxWidth": false },
+            "sequence": { "useMaxWidth": false },
+            "class": { "useMaxWidth": false },
+            "state": { "useMaxWidth": false },
+            "er": { "useMaxWidth": false },
+            "gantt": { "useMaxWidth": false },
+            "journey": { "useMaxWidth": false },
+            "timeline": { "useMaxWidth": false },
+            "mindmap": { "useMaxWidth": false },
+            "pie": { "useMaxWidth": false }
+          }
+          JSON
+
           # Sortie dans un fichier distinct puis renommage : mermaid-cli ne
           # garantit pas de savoir lire et écrire le même fichier.
           npx --yes "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
+            --configFile mermaid-config.json \
             --input support-de-cours.md \
             --output support-avec-diagrammes.md
           mv support-avec-diagrammes.md support-de-cours.md
@@ -692,6 +842,22 @@ jobs:
             font-weight: 700;
             line-height: 1.35;
             max-width: 80%;
+          }
+          /* Diagrammes mermaid, rendus en SVG à leur taille naturelle : jamais
+             plus larges que la colonne, ni plus hauts que la zone imprimable
+             (253 mm, marge de sécurité comprise). Une image ne se coupe pas :
+             si elle ne tient pas en bas de page, elle passe entière à la
+             suivante. Les proportions sont conservées. Le logo de la page de
+             garde, en data URI, ne correspond pas au sélecteur. */
+          img[src$=".svg"] {
+            display: block;
+            max-width: 100%;
+            max-height: 235mm;
+            width: auto;
+            height: auto;
+            margin: 0 auto;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
           CSS
 
